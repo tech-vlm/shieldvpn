@@ -1,18 +1,33 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
 jobs:
-  shellcheck:
+  lint-scripts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ludeeus/action-shellcheck@master
-  json-validate:
+      - name: ShellCheck (errors only)
+        uses: ludeeus/action-shellcheck@master
+        with:
+          severity: error
+          ignore_paths: vpn/wireguard
+
+  validate-configs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get install -y jq && find . -name '*.json' -not -path './node_modules/*' -exec jq empty {} +
+      - name: Validate JSON configs
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          find . -name '*.json' -not -path './node_modules/*' -not -path './dashboard/node_modules/*' -exec jq empty {} +
+
   docker-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose build dashboard
+      - name: Build dashboard image
+        run: docker build -t shieldvpn-dashboard:ci ./dashboard

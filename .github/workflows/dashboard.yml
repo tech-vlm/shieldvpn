@@ -20,16 +20,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: dashboard/.nvmrc
-          cache: npm
-          cache-dependency-path: dashboard/package-lock.json
 
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm install --no-audit --no-fund
 
-      - name: Typecheck (tsc)
-        run: npx tsc -b --noEmit
+      - name: Typecheck
+        run: npx --no-install tsc --noEmit
 
-      - name: Build (vite)
+      - name: Build
         run: npm run build
 
       - name: Upload build artifact
@@ -52,26 +50,22 @@ jobs:
         with:
           node-version-file: dashboard/.nvmrc
 
-      - name: Install Netlify CLI
-        run: npm install -g netlify-cli
-
       - name: Build dashboard
         working-directory: dashboard
         run: |
-          npm ci || npm install
+          npm install --no-audit --no-fund
           npm run build
 
       - name: Deploy to Netlify
         working-directory: dashboard
-        run: |
-          netlify deploy \
-            --build \
-            --site "${{ secrets.NETLIFY_SITE_ID }}" \
-            --auth "${{ secrets.NETLIFY_AUTH_TOKEN }}" \
-            --prod \
-            --message "Deploy from GitHub Actions @ ${{ github.sha }}"
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: npx --yes netlify-cli deploy --dir=dist --prod --message "Deploy ${{ github.sha }}"
 
       - name: Deployment summary
+        if: always()
         run: |
-          echo "### 🛡️ ShieldVPN Console deployed" >> ${{ github.env.GITHUB_STEP_SUMMARY }}
-          echo "Commit: ${{ github.sha }}" >> ${{ github.env.GITHUB_STEP_SUMMARY }}
+          echo "### 🛡️ ShieldVPN Console" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "Netlify site: ${{ secrets.NETLIFY_SITE_ID }}" >> $GITHUB_STEP_SUMMARY
