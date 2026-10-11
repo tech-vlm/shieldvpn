@@ -56,12 +56,49 @@ jobs:
           npm install --no-audit --no-fund
           npm run build
 
+      - name: Check secrets
+        working-directory: dashboard
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          if [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "::error::NETLIFY_SITE_ID secret is missing. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
+            echo "::error::NETLIFY_AUTH_TOKEN secret is missing. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Verify token & site access
+        working-directory: dashboard
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          set -e
+          echo "[*] Testing token..."
+          USER_EMAIL=$(curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" https://api.netlify.com/api/v1/user | jq -r .email)
+          if [ -z "$USER_EMAIL" ] || [ "$USER_EMAIL" = "null" ]; then
+            echo "::error::Token is INVALID or expired. Generate a new one at app.netlify.com/user/applications"
+            exit 1
+          fi
+          echo "[✔] Token belongs to: $USER_EMAIL"
+          echo "[*] Testing site access ($NETLIFY_SITE_ID)..."
+          SITE_NAME=$(curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID" | jq -r .name)
+          if [ -z "$SITE_NAME" ] || [ "$SITE_NAME" = "null" ]; then
+            echo "::error::Site not found or token has no access to site $NETLIFY_SITE_ID. Check the Site ID and that the token belongs to the same account."
+            exit 1
+          fi
+          echo "[✔] Site found: $SITE_NAME.netlify.app"
+
       - name: Deploy to Netlify
         working-directory: dashboard
         env:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        run: npx --yes netlify-cli deploy --dir=dist --prod --message "Deploy ${{ github.sha }}"
+        run: npx --yes netlify-cli deploy --dir=dist --prod --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN" --message "Deploy ${{ github.sha }}"
 
       - name: Deployment summary
         if: always()
