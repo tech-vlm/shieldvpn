@@ -1,0 +1,77 @@
+name: Dashboard CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths: ["dashboard/**", ".github/workflows/dashboard.yml"]
+  pull_request:
+    paths: ["dashboard/**", ".github/workflows/dashboard.yml"]
+
+jobs:
+  build:
+    name: Build & Typecheck dashboard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: dashboard/.nvmrc
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Typecheck (tsc)
+        run: npx tsc -b --noEmit
+
+      - name: Build (vite)
+        run: npm run build
+
+      - name: Upload build artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-dist
+          path: dashboard/dist
+          retention-days: 7
+
+  deploy-netlify:
+    name: Deploy to Netlify
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: dashboard/.nvmrc
+
+      - name: Install Netlify CLI
+        run: npm install -g netlify-cli
+
+      - name: Build dashboard
+        working-directory: dashboard
+        run: |
+          npm ci || npm install
+          npm run build
+
+      - name: Deploy to Netlify
+        working-directory: dashboard
+        run: |
+          netlify deploy \
+            --build \
+            --site "${{ secrets.NETLIFY_SITE_ID }}" \
+            --auth "${{ secrets.NETLIFY_AUTH_TOKEN }}" \
+            --prod \
+            --message "Deploy from GitHub Actions @ ${{ github.sha }}"
+
+      - name: Deployment summary
+        run: |
+          echo "### 🛡️ ShieldVPN Console deployed" >> ${{ github.env.GITHUB_STEP_SUMMARY }}
+          echo "Commit: ${{ github.sha }}" >> ${{ github.env.GITHUB_STEP_SUMMARY }}
