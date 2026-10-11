@@ -1,0 +1,32 @@
+{
+  "log": { "level": "warn" },
+  "dns": {
+    "servers": [
+      { "tag": "netshield", "address": "127.0.0.1:53", "detour": "direct" },
+      { "tag": "quad9", "address": "9.9.9.9" }
+    ],
+    "rules": [{ "outbound": "any", "server": "quad9" }]
+  },
+  "inbounds": [
+    { "type": "tun", "tag": "tun-in", "address": ["172.19.0.1/30"], "auto_route": true, "strict_route": true },
+    { "type": "mixed", "tag": "proxy-in", "listen": "0.0.0.0", "listen_port": 2080, "users": [] },
+    { "type": "shadowsocks", "listen": "0.0.0.0", "listen_port": 8388, "method": "chacha20-ietf-poly1305", "password": "CHANGE_ME" }
+  ],
+  "outbounds": [
+    { "type": "direct", "tag": "direct" },
+    { "type": "block", "tag": "blocked" },
+    { "type": "selector", "tag": "exit", "outbounds": ["wg-exit-1", "ss-exit", "vmess-exit", "trojan-exit", "hy2-exit"], "default": "wg-exit-1" },
+    { "type": "wireguard", "tag": "wg-exit-1", "address": ["10.99.0.2/32"], "private_key": "SET_ME", "peers": [{ "address": "EXIT_NODE_IP", "port": 51820, "public_key": "SET_ME", "allowed_ips": ["0.0.0.0/0"] }] },
+    { "type": "shadowsocks", "tag": "ss-exit", "server": "EXIT_NODE_IP", "server_port": 8388, "method": "chacha20-ietf-poly1305", "password": "CHANGE_ME" },
+    { "type": "vmess", "tag": "vmess-exit", "server": "EXIT_NODE_IP", "server_port": 443, "uuid": "SET_UUID" },
+    { "type": "trojan", "tag": "trojan-exit", "server": "EXIT_NODE_IP", "server_port": 443, "password": "CHANGE_ME" },
+    { "type": "hysteria2", "tag": "hy2-exit", "server": "EXIT_NODE_IP", "server_port": 443, "password": "CHANGE_ME" }
+  ],
+  "route": {
+    "rules": [
+      { "domain_suffix": [".doubleclick.net", ".googlesyndication.com"], "outbound": "blocked" },
+      { "ip_cidr": ["10.10.0.0/16"], "outbound": "direct" }
+    ],
+    "final": "exit"
+  }
+}

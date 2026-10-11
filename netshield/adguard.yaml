@@ -1,0 +1,25 @@
+# AdGuard Home — NetShield (ads/malware/trackers)
+bind_host: 0.0.0.0
+bind_port: 3000
+dns:
+  bind_hosts: [0.0.0.0]
+  port: 53
+  protection_enabled: true
+  blocking_mode: nxdomain
+  upstream_dns:
+    - https://dns.quad9.net/dns-query
+    - https://cloudflare-dns.com/dns-query
+  bootstrap_dns: [9.9.9.9, 1.1.1.1]
+filters:
+  - name: AdGuard DNS filter
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    enabled: true
+  - name: AdAway
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
+    enabled: true
+  - name: Malicious domains
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_27.txt
+    enabled: true
+  - name: Tracker list
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_31.txt
+    enabled: true

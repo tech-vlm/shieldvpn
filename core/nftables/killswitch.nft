@@ -1,0 +1,25 @@
+#!/usr/sbin/nft -f
+# ShieldVPN Kill Switch — traffic only via tunnel
+table inet shieldvpn
+flush table inet shieldvpn
+
+table inet shieldvpn {
+  chain input {
+    type filter hook input priority 0; policy drop
+    iifname "lo" accept
+    iifname "wg0" accept
+    ct state established,related accept
+    udp dport 51820 accept comment "WireGuard handshake"
+    tcp dport { 8388, 3128, 443 } accept
+    drop
+  }
+  chain forward {
+    type filter hook forward priority 0; policy drop
+    iifname "wg0" oifname "eth0" accept
+    ct state established,related accept
+    drop comment "kill-switch: no traffic outside tunnel"
+  }
+  chain output {
+    type filter hook output priority 0; policy accept
+  }
+}

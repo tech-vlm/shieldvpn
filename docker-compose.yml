@@ -1,0 +1,41 @@
+services:
+  sing-box:
+    image: ghcr.io/sagernet/sing-box:latest
+    cap_add: [NET_ADMIN]
+    volumes: ["./core/sing-box:/etc/sing-box:ro"]
+    ports: ["2080:2080", "8388:8388/tcp", "8388:8388/udp"]
+    restart: unless-stopped
+
+  wireguard:
+    image: linuxserver/wireguard
+    cap_add: [NET_ADMIN]
+    sysctls: { net.ipv4.ip_forward: 1 }
+    ports: ["51820:51820/udp"]
+    volumes: ["./vpn/wireguard:/config"]
+    restart: unless-stopped
+
+  netshield:
+    image: adguard/adguardhome
+    ports: ["53:53/tcp", "53:53/udp", "3000:3000"]
+    volumes: ["./netshield:/opt/adguardhome/conf", "netshield-work:/opt/adguardhome/work"]
+    restart: unless-stopped
+
+  squid:
+    image: ubuntu/squid
+    ports: ["3128:3128"]
+    volumes: ["./vpn/proxy/squid.conf:/etc/squid/squid.conf:ro"]
+    restart: unless-stopped
+
+  duckdns:
+    image: linuxserver/duckdns
+    environment:
+      - SUBDOMAINS=${DUCKDNS_DOMAINS:-myvpn}
+      - TOKEN=${DUCKDNS_TOKEN}
+    restart: unless-stopped
+
+  dashboard:
+    build: ./dashboard
+    ports: ["8080:80"]
+    restart: unless-stopped
+
+volumes: { netshield-work: {} }

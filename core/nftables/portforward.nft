@@ -1,0 +1,15 @@
+#!/usr/sbin/nft -f
+# Per-user port forwarding (example: forward 8080 -> alice 10.10.0.2:80)
+table inet shieldvpn_fwd
+flush table inet shieldvpn_fwd
+
+table inet shieldvpn_fwd {
+  chain prerouting {
+    type nat hook prerouting priority -100; policy accept
+    iifname "eth0" tcp dport 8080 dnat to 10.10.0.2:80
+  }
+  chain postrouting {
+    type nat hook postrouting priority 100; policy accept
+    ip saddr 10.10.0.0/24 oifname "eth0" masquerade
+  }
+}

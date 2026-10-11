@@ -1,0 +1,17 @@
+{
+  "defaults": {
+    "protocol": "wireguard",
+    "kill_switch": true,
+    "netshield": true,
+    "accelerate": true,
+    "dns": ["10.10.0.1"],
+    "mtu": 1420,
+    "split_tunnel": { "mode": "off", "apps": [], "routes": [] }
+  },
+  "presets": {
+    "streaming": { "protocol": "hysteria2", "exit": "us-1" },
+    "privacy":   { "protocol": "wireguard", "exit": "ch-1", "netshield": true },
+    "gaming":    { "protocol": "wireguard", "exit": "de-1", "accelerate": true },
+    "work":      { "protocol": "trojan", "split_tunnel": { "mode": "include", "routes": ["10.0.0.0/8"] } }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "nodes": [
+    { "id": "de-1", "country": "Germany", "city": "Frankfurt", "ip": "203.0.113.10", "protocols": ["wireguard", "hysteria2"], "multihop": true },
+    { "id": "nl-1", "country": "Netherlands", "city": "Amsterdam", "ip": "203.0.113.11", "protocols": ["wireguard", "shadowsocks"] },
+    { "id": "us-1", "country": "United States", "city": "New York", "ip": "203.0.113.12", "protocols": ["wireguard", "vmess"] },
+    { "id": "gb-1", "country": "United Kingdom", "city": "London", "ip": "203.0.113.13", "protocols": ["wireguard", "trojan"] },
+    { "id": "sg-1", "country": "Singapore", "city": "Singapore", "ip": "203.0.113.14", "protocols": ["wireguard", "hysteria2"] },
+    { "id": "jp-1", "country": "Japan", "city": "Tokyo", "ip": "203.0.113.15", "protocols": ["wireguard", "shadowsocks"] },
+    { "id": "ch-1", "country": "Switzerland", "city": "Zurich", "ip": "203.0.113.16", "protocols": ["wireguard"] }
+  ]
+}
