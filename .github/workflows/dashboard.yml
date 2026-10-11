@@ -39,7 +39,7 @@ jobs:
           retention-days: 7
 
   deploy-netlify:
-    name: Deploy to Netlify
+    name: Deploy to Netlify (REST API)
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -56,52 +56,62 @@ jobs:
           npm install --no-audit --no-fund
           npm run build
 
-      - name: Check secrets
-        working-directory: dashboard
-        env:
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        run: |
-          if [ -z "$NETLIFY_SITE_ID" ]; then
-            echo "::error::NETLIFY_SITE_ID secret is missing. Add it in Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-          if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
-            echo "::error::NETLIFY_AUTH_TOKEN secret is missing. Add it in Settings > Secrets and variables > Actions."
-            exit 1
-          fi
+      - name: Zip dist
+        working-directory: dashboard/dist
+        run: zip -r ../deploy.zip .
 
       - name: Verify token & site access
-        working-directory: dashboard
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
           set -e
-          echo "[*] Testing token..."
           USER_EMAIL=$(curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" https://api.netlify.com/api/v1/user | jq -r .email)
           if [ -z "$USER_EMAIL" ] || [ "$USER_EMAIL" = "null" ]; then
             echo "::error::Token is INVALID or expired. Generate a new one at app.netlify.com/user/applications"
             exit 1
           fi
           echo "[✔] Token belongs to: $USER_EMAIL"
-          echo "[*] Testing site access ($NETLIFY_SITE_ID)..."
-          SITE_NAME=$(curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID" | jq -r .name)
-          if [ -z "$SITE_NAME" ] || [ "$SITE_NAME" = "null" ]; then
-            echo "::error::Site not found or token has no access to site $NETLIFY_SITE_ID. Check the Site ID and that the token belongs to the same account."
+          SITE_JSON=$(curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID")
+          SITE_NAME=$(echo "$SITE_JSON" | jq -r '.name // empty')
+          if [ -z "$SITE_NAME" ]; then
+            echo "::error::Site not found. Full API response (check if site belongs to the same account):"
+            echo "$SITE_JSON" | jq . || echo "$SITE_JSON"
             exit 1
           fi
-          echo "[✔] Site found: $SITE_NAME.netlify.app"
+          SITE_URL=$(echo "$SITE_JSON" | jq -r '.ssl_url // .url')
+          echo "[✔] Site found: $SITE_NAME — $SITE_URL"
+          echo "SITE_NAME=$SITE_NAME" >> $GITHUB_ENV
+          echo "SITE_URL=$SITE_URL" >> $GITHUB_ENV
 
-      - name: Deploy to Netlify
-        working-directory: dashboard
+      - name: Deploy via Netlify API
         env:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        run: npx --yes netlify-cli deploy --dir=dist --prod --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN" --message "Deploy ${{ github.sha }}"
+        run: |
+          set -e
+          echo "[*] Uploading build to Netlify..."
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+            -H "Content-Type: application/zip" \
+            --data-binary @dashboard/deploy.zip \
+            "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/deploys")
+          echo "HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "201" ]; then
+            echo "::error::Deploy rejected (HTTP $HTTP_CODE). Full Netlify response:"
+            cat response.json | jq . || cat response.json
+            exit 1
+          fi
+          DEPLOY_URL=$(jq -r '.ssl_url // .url' response.json)
+          echo "[✔] Deploy accepted! Live at: $DEPLOY_URL"
+          echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_ENV
 
       - name: Deployment summary
         if: always()
         run: |
           echo "### 🛡️ ShieldVPN Console" >> $GITHUB_STEP_SUMMARY
           echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ env.DEPLOY_URL }}" ]; then
+            echo "🚀 Live: ${{ env.DEPLOY_URL }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "Site: ${{ env.SITE_NAME }} (${{ env.SITE_URL }})" >> $GITHUB_STEP_SUMMARY
