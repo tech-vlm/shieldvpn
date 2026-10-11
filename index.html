@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ShieldVPN Console</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased p-6">
+<div class="mx-auto max-w-6xl space-y-6">
+
+  <!-- Header -->
+  <header class="flex flex-col md:flex-row md:items-center md:justify-between rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-900/40 p-6">
+    <div class="flex items-center gap-4">
+      <div id="shield" class="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-2xl">🛡️</div>
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">ShieldVPN Console</h1>
+        <p id="status" class="text-sm text-slate-400">Protected · WireGuard · Zurich, Switzerland · 21ms</p>
+      </div>
+    </div>
+    <button id="connectBtn" class="mt-4 md:mt-0 rounded-xl bg-rose-500 hover:bg-rose-400 px-6 py-3 font-medium transition">Disconnect</button>
+  </header>
+
+  <!-- Stats -->
+  <div class="grid gap-4 md:grid-cols-4">
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <div class="text-xs text-slate-400">Active tunnels</div>
+      <div class="mt-1 text-2xl font-semibold">3</div>
+      <div class="text-xs text-slate-500">WireGuard · Hy2 · Trojan</div>
+    </div>
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <div class="text-xs text-slate-400">NetShield blocked</div>
+      <div class="mt-1 text-2xl font-semibold" id="blockedCount">0</div>
+      <div class="text-xs text-slate-500">last 24h</div>
+    </div>
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <div class="text-xs text-slate-400">Accelerate</div>
+      <div class="mt-1 text-2xl font-semibold text-amber-400">BBR ON</div>
+      <div class="text-xs text-slate-500">TCP + buffer tuning</div>
+    </div>
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <div class="text-xs text-slate-400">Throughput</div>
+      <div class="mt-1 text-2xl font-semibold text-sky-400">42 Mbps</div>
+      <div class="text-xs text-slate-500">peak, last hour</div>
+    </div>
+  </div>
+
+  <!-- Toggles -->
+  <div class="grid gap-4 md:grid-cols-3" id="toggles"></div>
+
+  <!-- Bandwidth -->
+  <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+    <h2 class="mb-4 text-base font-medium">Bandwidth — 24h (Mbps)</h2>
+    <div class="h-64"><canvas id="bwChart"></canvas></div>
+  </div>
+
+  <!-- Nodes + Tunnels -->
+  <div class="grid gap-4 md:grid-cols-2">
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+      <h2 class="mb-3 text-base font-medium">Exit nodes</h2>
+      <div id="nodes" class="flex flex-wrap gap-2"></div>
+    </div>
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+      <h2 class="mb-3 text-base font-medium">Live tunnels</h2>
+      <div id="tunnels" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <footer class="pb-4 text-center text-xs text-slate-600">
+    12 modules — DDNS · Tunnels · Protocols · Port Forwarding · Kill Switch · Split Tunneling · Preferences · Proxies · Profiles · Countries · NetShield · Accelerate
+  </footer>
+</div>
+
+<script>
+const nodes = [
+  { id: "ch-1", country: "Switzerland", ms: 21 },
+  { id: "de-1", country: "Germany", ms: 18 },
+  { id: "nl-1", country: "Netherlands", ms: 14 },
+  { id: "gb-1", country: "United Kingdom", ms: 24 },
+  { id: "us-1", country: "United States", ms: 96 },
+  { id: "sg-1", country: "Singapore", ms: 152 },
+  { id: "jp-1", country: "Japan", ms: 141 },
+];
+const tunnels = [
+  { peer: "alice (10.10.0.2)", proto: "wireguard", node: "ch-1", down: 12.4, up: 3.1, hs: "2s" },
+  { peer: "bob (10.10.0.3)", proto: "hysteria2", node: "de-1", down: 5.8, up: 1.2, hs: "5s" },
+  { peer: "carol (10.10.0.4)", proto: "trojan", node: "us-1", down: 27.9, up: 6.7, hs: "18s" },
+];
+const toggles = [
+  { label: "Kill Switch", desc: "nftables drop-outside-tunnel", on: true },
+  { label: "NetShield", desc: "AdGuard Home: ads, trackers, malware", on: true },
+  { label: "VPN Accelerate", desc: "BBR congestion control + buffers", on: true },
+];
+let connected = true;
+let selectedNode = "ch-1";
+
+function renderToggles() {
+  document.getElementById("toggles").innerHTML = toggles.map((t, i) => `
+    <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <div><div class="text-sm font-medium">${t.label}</div><div class="text-xs text-slate-400">${t.desc}</div></div>
+      <button onclick="toggles[${i}].on=!toggles[${i}].on;renderToggles()"
+        class="h-6 w-11 rounded-full relative transition ${t.on ? "bg-sky-500" : "bg-slate-700"}">
+        <span class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${t.on ? "left-[22px]" : "left-0.5"}"></span>
+      </button>
+    </div>`).join("");
+}
+
+function renderNodes() {
+  document.getElementById("nodes").innerHTML = nodes.map(n => `
+    <button onclick="selectedNode='${n.id}';renderNodes()"
+      class="rounded-full px-3 py-1 text-xs transition ${selectedNode === n.id ? "bg-sky-500 text-slate-950 font-medium" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}">
+      ${n.country} · ${n.ms}ms</button>`).join("");
+}
+
+function renderTunnels() {
+  document.getElementById("tunnels").innerHTML = connected ? tunnels.map(t => `
+    <div class="flex items-center justify-between rounded-lg bg-slate-950 p-3 text-sm">
+      <div><div class="font-medium">${t.peer}</div>
+        <div class="text-xs text-slate-500">${t.proto} · ${t.node} · hs ${t.hs}</div></div>
+      <div class="text-right text-xs"><div class="text-sky-400">↓ ${t.down} GB</div><div class="text-violet-400">↑ ${t.up} GB</div></div>
+    </div>`).join("") : '<p class="text-sm text-slate-500">No active tunnels.</p>';
+}
+
+document.getElementById("connectBtn").addEventListener("click", () => {
+  connected = !connected;
+  const btn = document.getElementById("connectBtn");
+  const status = document.getElementById("status");
+  const shield = document.getElementById("shield");
+  if (connected) {
+    btn.textContent = "Disconnect";
+    btn.className = "mt-4 md:mt-0 rounded-xl bg-rose-500 hover:bg-rose-400 px-6 py-3 font-medium transition";
+    status.textContent = "Protected · WireGuard · Zurich, Switzerland · 21ms";
+    shield.className = "flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-2xl";
+  } else {
+    btn.textContent = "Connect";
+    btn.className = "mt-4 md:mt-0 rounded-xl bg-emerald-500 text-slate-950 hover:bg-emerald-400 px-6 py-3 font-medium transition";
+    status.textContent = "Not connected — traffic exposed";
+    shield.className = "flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-2xl";
+  }
+  renderTunnels();
+});
+
+new Chart(document.getElementById("bwChart"), {
+  type: "line",
+  data: {
+    labels: ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"],
+    datasets: [
+      { label: "Download", data: [9, 5, 18, 27, 31, 42], borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,0.25)", fill: true, tension: 0.35 },
+      { label: "Upload", data: [2.4, 1.1, 5, 8, 9.5, 13], borderColor: "#a78bfa", backgroundColor: "rgba(167,139,250,0.2)", fill: true, tension: 0.35 }
+    ]
+  },
+  options: {
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: "#94a3b8" } } },
+    scales: {
+      x: { ticks: { color: "#64748b" }, grid: { color: "#1e293b" } },
+      y: { ticks: { color: "#64748b" }, grid: { color: "#1e293b" } }
+    }
+  }
+});
+
+// Animate NetShield counter
+let target = 12483, cur = 0;
+const step = () => { cur = Math.min(target, cur + Math.ceil(target / 60)); document.getElementById("blockedCount").textContent = cur.toLocaleString(); if (cur < target) setTimeout(step, 20); };
+step();
+
+renderToggles(); renderNodes(); renderTunnels();
+</script>
+</body>
+</html>
