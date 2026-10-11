@@ -10,14 +10,14 @@ on:
 jobs:
   build:
     name: Build & Typecheck dashboard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: dashboard
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: dashboard/.nvmrc
 
@@ -42,11 +42,11 @@ jobs:
     name: Deploy to Netlify
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: dashboard/.nvmrc
 
@@ -68,4 +68,3 @@ jobs:
         run: |
           echo "### 🛡️ ShieldVPN Console" >> $GITHUB_STEP_SUMMARY
           echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "Netlify site: ${{ secrets.NETLIFY_SITE_ID }}" >> $GITHUB_STEP_SUMMARY

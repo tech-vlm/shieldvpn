@@ -7,9 +7,9 @@ on:
 
 jobs:
   lint-scripts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: ShellCheck (errors only)
         uses: ludeeus/action-shellcheck@master
         with:
@@ -17,17 +17,17 @@ jobs:
           ignore_paths: vpn/wireguard
 
   validate-configs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Validate JSON configs
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           find . -name '*.json' -not -path './node_modules/*' -not -path './dashboard/node_modules/*' -exec jq empty {} +
 
   docker-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build dashboard image
         run: docker build -t shieldvpn-dashboard:ci ./dashboard

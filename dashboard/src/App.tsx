@@ -6,6 +6,18 @@ import { callApi, features } from "./features";
 interface Node { id: string; country: string; city: string; latency: number; load: number; protocols: string[]; }
 interface Tunnel { peer: string; protocol: string; node: string; down: number; up: number; handshake: string; }
 
+const fallbackNodes: Node[] = [
+  { id: "ch-1", country: "Switzerland", city: "Zurich", latency: 21, load: 28, protocols: ["wireguard"] },
+  { id: "de-1", country: "Germany", city: "Frankfurt", latency: 18, load: 42, protocols: ["wireguard", "hysteria2"] },
+  { id: "us-1", country: "United States", city: "New York", latency: 96, load: 67, protocols: ["wireguard", "vmess"] },
+];
+
+const fallbackTunnels: Tunnel[] = [
+  { peer: "alice (10.10.0.2)", protocol: "wireguard", node: "ch-1", down: 12.4, up: 3.1, handshake: "2s" },
+  { peer: "bob (10.10.0.3)", protocol: "hysteria2", node: "de-1", down: 5.8, up: 1.2, handshake: "5s" },
+  { peer: "carol (10.10.0.4)", protocol: "trojan", node: "us-1", down: 27.9, up: 6.7, handshake: "18s" },
+];
+
 const bandwidth = [
   { t: "00:00", down: 9, up: 2.4 }, { t: "04:00", down: 5, up: 1.1 },
   { t: "08:00", down: 18, up: 5 }, { t: "12:00", down: 27, up: 8 },
@@ -17,12 +29,12 @@ export default function App() {
   const [killSwitch, setKillSwitch] = useState(true);
   const [netShield, setNetShield] = useState(true);
   const [accelerate, setAccelerate] = useState(true);
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [tunnels, setTunnels] = useState<Tunnel[]>([]);
+  const [nodes, setNodes] = useState<Node[]>(fallbackNodes);
+  const [tunnels, setTunnels] = useState<Tunnel[]>(fallbackTunnels);
   const [selectedNode, setSelectedNode] = useState<string>("ch-1");
 
   useEffect(() => {
-    // Wire to live backend — falls back to empty state when API is offline
+    // Wire to live backend — falls back to demo data when API is offline
     callApi<Node[]>("/api/nodes").then(setNodes).catch(() => {});
     callApi<Tunnel[]>("/api/tunnels").then(setTunnels).catch(() => {});
   }, []);
@@ -87,18 +99,41 @@ export default function App() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-shield-800 bg-shield-900/60 p-6">
-          <h2 className="mb-3 text-base font-medium">Exit nodes</h2>
-          <div className="flex flex-wrap gap-2">
-            {(nodes.length ? nodes : [{ id: "ch-1", country: "Switzerland", city: "Zurich", latency: 21, load: 28, protocols: ["wireguard"] }]).map((n) => (
-              <button
-                key={n.id}
-                onClick={() => setSelectedNode(n.id)}
-                className={`rounded-full px-3 py-1 text-xs transition ${selectedNode === n.id ? "bg-sky-500 text-shield-950 font-medium" : "bg-shield-800 text-slate-300 hover:bg-shield-700"}`}
-              >
-                {n.country} · {n.latency}ms
-              </button>
-            ))}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-shield-800 bg-shield-900/60 p-6">
+            <h2 className="mb-3 text-base font-medium">Exit nodes</h2>
+            <div className="flex flex-wrap gap-2">
+              {nodes.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => setSelectedNode(n.id)}
+                  className={`rounded-full px-3 py-1 text-xs transition ${selectedNode === n.id ? "bg-sky-500 text-shield-950 font-medium" : "bg-shield-800 text-slate-300 hover:bg-shield-700"}`}
+                >
+                  {n.country} · {n.latency}ms
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-shield-800 bg-shield-900/60 p-6">
+            <h2 className="mb-3 text-base font-medium">Live tunnels</h2>
+            <div className="space-y-2">
+              {tunnels.length === 0 && (
+                <p className="text-sm text-slate-500">No active tunnels — API offline or no peers connected.</p>
+              )}
+              {tunnels.map((t) => (
+                <div key={t.peer} className="flex items-center justify-between rounded-lg bg-shield-950 p-3 text-sm">
+                  <div>
+                    <div className="font-medium text-slate-100">{t.peer}</div>
+                    <div className="text-xs text-slate-500">{t.protocol} · {t.node} · hs {t.handshake}</div>
+                  </div>
+                  <div className="text-right text-xs">
+                    <div className="text-sky-400">↓ {t.down} GB</div>
+                    <div className="text-violet-400">↑ {t.up} GB</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

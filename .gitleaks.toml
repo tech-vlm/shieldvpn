@@ -1,0 +1,21 @@
+# ShieldVPN Gitleaks configuration
+# Extends the default ruleset; allows documented PLACEHOLDER credentials
+# in sample/template configs only. Real secrets are still detected.
+
+title = "ShieldVPN Gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow placeholder credentials in sample configs"
+regexTarget = "match"
+regexes = [
+  '''CHANGE_ME[^\"']*''',
+  '''CHANGE_ME_STRONG_PASSWORD''',
+  '''SET_ME[^\"']*''',
+  '''SET_UUID''',
+  '''YOUR_DUCKDNS_TOKEN''',
+  '''__TOKEN__''',
+  '''dG9rZW4tdG9rZW4tdG9rZW4tdG9rZW4=''',
+]
