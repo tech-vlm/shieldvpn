@@ -1,0 +1,57 @@
+name: Deploy Dashboard to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["dashboard/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: dashboard/.nvmrc
+
+      - name: Build dashboard
+        working-directory: dashboard
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          # GitHub Pages serves from a sub-path (/shieldvpn/), set the base
+          sed -i "s#base: '/#' # does nothing placeholder#" vite.config.ts || true
+
+      - name: Set base path for Pages
+        working-directory: dashboard
+        run: |
+          grep -q "base:" vite.config.ts && \
+            sed -i "s#base:[^,]*#base: '/shieldvpn/'#" vite.config.ts || \
+            sed -i "s#defineConfig({#defineConfig({ base: '/shieldvpn/',#" vite.config.ts
+          npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
