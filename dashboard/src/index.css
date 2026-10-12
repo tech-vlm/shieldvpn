@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Dark theme (default) — slate palette */
+:root {
+  --s50: 248 250 252;
+  --s100: 241 245 249;
+  --s200: 226 232 240;
+  --s300: 203 213 225;
+  --s400: 148 163 184;
+  --s500: 100 116 139;
+  --s600: 71 85 105;
+  --s700: 51 65 85;
+  --s800: 30 41 59;
+  --s900: 15 23 42;
+  --s950: 2 6 23;
+  --accent: 56 189 248;      /* sky-400 */
+  --accent-soft: 125 211 252;
+}
+
+/* Light theme — inverted neutrals, same accent system */
+[data-theme="light"] {
+  --s50: 15 23 42;
+  --s100: 30 41 59;
+  --s200: 51 65 85;
+  --s300: 71 85 105;
+  --s400: 100 116 139;
+  --s500: 100 116 139;
+  --s600: 148 163 184;
+  --s700: 203 213 225;
+  --s800: 184 197 214;
+  --s900: 255 255 255;
+  --s950: 238 243 249;
+}
+
 body {
-  @apply bg-shield-950 text-slate-100 antialiased;
+  @apply bg-shield-950 text-shield-100 antialiased;
 }
