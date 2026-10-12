@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths: ["dashboard/**", ".github/workflows/pages.yml"]
+  pull_request:
+    paths: ["dashboard/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +19,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build dashboard
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -25,20 +28,11 @@ jobs:
         with:
           node-version-file: dashboard/.nvmrc
 
-      - name: Build dashboard
+      - name: Install & build
         working-directory: dashboard
         run: |
           npm install --no-audit --no-fund
-          npm run build
-          # GitHub Pages serves from a sub-path (/shieldvpn/), set the base
-          sed -i "s#base: '/#' # does nothing placeholder#" vite.config.ts || true
-
-      - name: Set base path for Pages
-        working-directory: dashboard
-        run: |
-          grep -q "base:" vite.config.ts && \
-            sed -i "s#base:[^,]*#base: '/shieldvpn/'#" vite.config.ts || \
-            sed -i "s#defineConfig({#defineConfig({ base: '/shieldvpn/',#" vite.config.ts
+          npx --no-install tsc --noEmit
           npm run build
 
       - name: Upload Pages artifact
@@ -47,11 +41,21 @@ jobs:
           path: dashboard/dist
 
   deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-24.04
-    needs: build
     steps:
-      - id: deployment
+      - name: Deploy
+        id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### 🛡️ ShieldVPN Console — live" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 URL: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

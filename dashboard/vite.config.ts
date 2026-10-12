@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
+  base: "/shieldvpn/", // GitHub Pages sub-path
   plugins: [react()],
   server: {
     proxy: {
