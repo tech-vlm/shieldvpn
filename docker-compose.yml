@@ -1,4 +1,13 @@
 services:
+  api:
+    build: ./server
+    environment:
+      - SHIELDVPN_API_KEY=${SHIELDVPN_API_KEY:-}
+      - ADGUARD_URL=http://netshield:3000
+    network_mode: host        # needs host network for wg/nft
+    cap_add: [NET_ADMIN]
+    restart: unless-stopped
+
   sing-box:
     image: ghcr.io/sagernet/sing-box:latest
     cap_add: [NET_ADMIN]
@@ -24,18 +33,6 @@ services:
     image: ubuntu/squid
     ports: ["3128:3128"]
     volumes: ["./vpn/proxy/squid.conf:/etc/squid/squid.conf:ro"]
-    restart: unless-stopped
-
-  duckdns:
-    image: linuxserver/duckdns
-    environment:
-      - SUBDOMAINS=${DUCKDNS_DOMAINS:-myvpn}
-      - TOKEN=${DUCKDNS_TOKEN}
-    restart: unless-stopped
-
-  dashboard:
-    build: ./dashboard
-    ports: ["8080:80"]
     restart: unless-stopped
 
 volumes: { netshield-work: {} }
