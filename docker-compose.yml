@@ -1,11 +1,46 @@
+# ShieldVPN full stack — one command: docker compose up -d --build
 services:
+  # ---- API server: tunnels, DDNS engine, kill switch, proxies, NetShield ----
   api:
     build: ./server
     environment:
       - SHIELDVPN_API_KEY=${SHIELDVPN_API_KEY:-}
+      - SHIELDVPN_DIR=/etc/shieldvpn
       - ADGUARD_URL=http://netshield:3000
-    network_mode: host        # needs host network for wg/nft
+      - ADGUARD_AUTH=${ADGUARD_AUTH:-}
     cap_add: [NET_ADMIN]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports: ["8081:8081"]
+    volumes: ["./data/shieldvpn:/etc/shieldvpn"]
+    restart: unless-stopped
+
+  # ---- Dashboard: built React SPA served by nginx, proxies /api -> api ----
+  dashboard:
+    build: ./dashboard
+    ports: ["8080:80"]
+    restart: unless-stopped
+
+  # ---- Reverse proxy: HTTPS for dashboard + API on your DDNS domain ----
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      - SHIELD_DOMAIN=${SHIELD_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [api, dashboard]
+    restart: unless-stopped
+
+  # ---- Tunnels: WireGuard (kernel) + sing-box (SS/VMess/Trojan/Hysteria2) ----
+  wireguard:
+    image: linuxserver/wireguard
+    cap_add: [NET_ADMIN]
+    sysctls: { net.ipv4.ip_forward: 1 }
+    ports: ["51820:51820/udp"]
+    volumes: ["./vpn/wireguard:/config"]
     restart: unless-stopped
 
   sing-box:
@@ -15,24 +50,21 @@ services:
     ports: ["2080:2080", "8388:8388/tcp", "8388:8388/udp"]
     restart: unless-stopped
 
-  wireguard:
-    image: linuxserver/wireguard
-    cap_add: [NET_ADMIN]
-    sysctls: { net.ipv4.ip_forward: 1 }
-    ports: ["51820:51820/udp"]
-    volumes: ["./vpn/wireguard:/config"]
-    restart: unless-stopped
-
+  # ---- NetShield: AdGuard Home DNS filtering (open API on :3000) ----
   netshield:
     image: adguard/adguardhome
     ports: ["53:53/tcp", "53:53/udp", "3000:3000"]
     volumes: ["./netshield:/opt/adguardhome/conf", "netshield-work:/opt/adguardhome/work"]
     restart: unless-stopped
 
+  # ---- Proxies: authenticated HTTP proxy (SOCKS5 lives in sing-box :2080) ----
   squid:
     image: ubuntu/squid
     ports: ["3128:3128"]
     volumes: ["./vpn/proxy/squid.conf:/etc/squid/squid.conf:ro"]
     restart: unless-stopped
 
-volumes: { netshield-work: {} }
+volumes:
+  netshield-work: {}
+  caddy-data: {}
+  caddy-config: {}

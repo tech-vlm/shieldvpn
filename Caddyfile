@@ -1,0 +1,35 @@
+# ShieldVPN reverse proxy — automatic HTTPS via Let's Encrypt
+# Point SHIELD_DOMAIN at this server (e.g. via the DDNS engine), open ports 80+443.
+
+${SHIELD_DOMAIN} {
+	encode gzip
+
+	# API backend
+	handle /api/* {
+		reverse_proxy api:8081
+	}
+
+	# Dashboard (static SPA)
+	handle {
+		root * /srv
+		file_server
+		try_files {path} /index.html
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubdomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}
+
+# Plain-IP fallback (e.g. before DNS propagates)
+:80 {
+	handle /api/* {
+		reverse_proxy api:8081
+	}
+	handle {
+		reverse_proxy dashboard:80
+	}
+}
