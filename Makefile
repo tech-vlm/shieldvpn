@@ -1,25 +1,27 @@
 .PHONY: up down restart logs ps rebuild fresh
 
-# Full stack up: builds dashboard + API, starts every service
+# Auto-detect: compose plugin (v2) or standalone docker-compose (v1)
+COMPOSE := $(shell docker compose version >/dev/null 2>&1 2>&1 && echo "docker compose" || echo "docker-compose")
+
 up:
-	docker compose up -d --build
+	$(COMPOSE) up -d --build
 
 down:
-	docker compose down
+	$(COMPOSE) down
 
 restart:
-	docker compose restart
+	$(COMPOSE) restart
 
 logs:
-	docker compose logs -f --tail=100
+	$(COMPOSE) logs -f --tail=100
 
 ps:
-	docker compose ps
+	$(COMPOSE) ps
 
 # Rebuild only the dashboard + API (after code changes)
 rebuild:
-	docker compose up -d --build api dashboard
+	$(COMPOSE) up -d --build api dashboard
 
 # Wipe all state (profiles, Caddy certs) — destructive
 fresh:
-	docker compose down -v
+	$(COMPOSE) down -v
